@@ -11,18 +11,27 @@ import (
 	"time"
 )
 
+// invalidGrantText is moved out of the var block to make the line lengths somewhat sane.
+const invalidGrantText string = "the provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client"
+
 var (
-	ErrDeviceCodeUnclaimed       error = errors.New("the user has not yet claimed the device code")
-	ErrInvalidDeviceCode         error = errors.New("invalid device code")
-	ErrForbidden                 error = errors.New("invalid API key or unapproved application")
-	ErrDeviceCodeAlreadyApproved error = errors.New("device code has already been approved")
-	ErrDeviceCodeExpired         error = errors.New("the device code has expired, please regenerate a new one")
-	ErrDeviceCodeDenied          error = errors.New("the device code was denied by the user")
-	ErrPollRateTooFast           error = errors.New("the API is being polled too quickly")
-	ErrServerError               error = errors.New("the Trakt API is reporting an internal problem, please check back later")
-	ErrServiceOverloaded         error = errors.New("the servers are overloaded, please try again in 30 seconds")
-	ErrCloudflareError           error = errors.New("there is an issue with Cloudflare")
+	ErrDeviceCodeUnclaimed       error = errors.New("the user has not yet claimed the device code")                            // 400
+	ErrInvalidGrant              error = errors.New(invalidGrantText)                                                          // 401
+	ErrInvalidDeviceCode         error = errors.New("invalid device code")                                                     // 404
+	ErrForbidden                 error = errors.New("invalid API key or unapproved application")                               // 403
+	ErrDeviceCodeAlreadyApproved error = errors.New("device code has already been approved")                                   // 409
+	ErrDeviceCodeExpired         error = errors.New("the device code has expired, please regenerate a new one")                // 410
+	ErrDeviceCodeDenied          error = errors.New("the device code was denied by the user")                                  // 418
+	ErrPollRateTooFast           error = errors.New("the API is being polled too quickly")                                     // 429
+	ErrServerError               error = errors.New("the Trakt API is reporting an internal problem, please check back later") // 500
+	ErrServiceOverloaded         error = errors.New("the servers are overloaded, please try again in 30 seconds")              // 503, 504
+	ErrCloudflareError           error = errors.New("there is an issue with Cloudflare")                                       // 520, 521, 522
 )
+
+// TraktAPIBaseUrl is the base url for all API requests. This shouldn't
+// need to be modified unless targetting a different server, for instance
+// the staging server (https://api-staging.trakt.tv)
+var TraktAPIBaseUrl string = "https://api.trakt.tv"
 
 // GenerateNewCode wraps GenerateNewCodeContext using context.Background().
 func GenerateNewCode(clientID string) (CodeResponse, error) {
@@ -33,7 +42,7 @@ func GenerateNewCode(clientID string) (CodeResponse, error) {
 func GenerateNewCodeContext(ctx context.Context, clientID string) (CodeResponse, error) {
 	dataBuf := bytes.NewBufferString(fmt.Sprintf(`{"client_id": "%s"}`, clientID))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.trakt.tv/oauth/device/code", dataBuf)
+	req, err := http.NewRequestWithContext(ctx, "POST", TraktAPIBaseUrl+"/oauth/device/code", dataBuf)
 	if err != nil {
 		return CodeResponse{}, fmt.Errorf("GenerateNewCode: %w", err)
 	}
@@ -116,7 +125,7 @@ func RequestToken(codeResp CodeResponse, clientID, clientSecret string) (TokenRe
 func RequestTokenContext(ctx context.Context, codeResp CodeResponse, clientID, clientSecret string) (TokenResponse, error) {
 	dataBuf := bytes.NewBufferString(fmt.Sprintf(`{"code": "%s", "client_id": "%s", "client_secret": "%s"}`, codeResp.DeviceCode, clientID, clientSecret))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.trakt.tv/oauth/device/token", dataBuf)
+	req, err := http.NewRequestWithContext(ctx, "POST", TraktAPIBaseUrl+"/oauth/device/token", dataBuf)
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("RequestToken: %w", err)
 	}
@@ -128,11 +137,14 @@ func RequestTokenContext(ctx context.Context, codeResp CodeResponse, clientID, c
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("RequestToken: %w", err)
 	}
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200: // The access token has been returned, continue on to the decode stage.
 	case 400:
 		return TokenResponse{}, ErrDeviceCodeUnclaimed
+	case 403:
+		return TokenResponse{}, ErrForbidden
 	case 404:
 		return TokenResponse{}, ErrInvalidDeviceCode
 	case 409:
@@ -154,7 +166,6 @@ func RequestTokenContext(ctx context.Context, codeResp CodeResponse, clientID, c
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close() // To avoid accumulating 1800 response bodies using defer, just close the body as soon as it's done being used.
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("RequestToken: %w", err)
 	}
@@ -162,6 +173,61 @@ func RequestTokenContext(ctx context.Context, codeResp CodeResponse, clientID, c
 	respStruct := internalTokenResponse{}
 	if err = json.Unmarshal(b, &respStruct); err != nil {
 		return TokenResponse{}, fmt.Errorf("RequestToken: %w", err)
+	}
+
+	return transformInternalTokenResponse(respStruct), nil
+}
+
+// RefreshAccessToken wraps RefreshAccessTokenContext with a context.Background() struct.
+// Please refer to RefreshAccessTokenContext for documentation.
+func RefreshAccessToken(refreshToken, clientID, clientSecret string) (TokenResponse, error) {
+	return RefreshAccessTokenContext(context.Background(), refreshToken, clientID, clientSecret)
+}
+
+// RefreshAccessTokenContext takes the refresh token from a previous TokenResponse and creates a new one.
+// This should only be used when an AccessToken expires (after about 3 months according to Trakt).
+func RefreshAccessTokenContext(ctx context.Context, refreshToken, clientID, clientSecret string) (TokenResponse, error) {
+	//! I have no clue if the redirect_uri I am passing in here is a good value for all requests. It may need to be moved to a function paramater.
+	dataBuf := bytes.NewBufferString(fmt.Sprintf(`{"refresh_token": "%s", "client_id": "%s", "client_secret": "%s", "redirect_uri": "urn:ietf:wg:oauth:2.0:oob", "grant_type": "refresh_token"}`, refreshToken, clientID, clientSecret))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", TraktAPIBaseUrl+"/oauth/token", dataBuf)
+	if err != nil {
+		return TokenResponse{}, fmt.Errorf("RefreshToken: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Trakt-API-Version", "2")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return TokenResponse{}, fmt.Errorf("RefreshToken: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200: // The access token has been returned, continue on to the decode stage.
+	case 401:
+		return TokenResponse{}, ErrInvalidGrant
+	case 403:
+		return TokenResponse{}, ErrForbidden
+	case 500:
+		return TokenResponse{}, ErrServerError
+	case 503, 504:
+		return TokenResponse{}, ErrServiceOverloaded
+	case 520, 521, 522:
+		return TokenResponse{}, ErrCloudflareError
+	default:
+		return TokenResponse{}, fmt.Errorf("RefreshToken: unexpected status code '%v'", resp.StatusCode)
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return TokenResponse{}, fmt.Errorf("RefreshToken: %w", err)
+	}
+
+	respStruct := internalTokenResponse{}
+	if err = json.Unmarshal(b, &respStruct); err != nil {
+		return TokenResponse{}, fmt.Errorf("RefreshToken: %w", err)
 	}
 
 	return transformInternalTokenResponse(respStruct), nil

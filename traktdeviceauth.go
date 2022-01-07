@@ -11,16 +11,18 @@ import (
 	"time"
 )
 
-var ErrDeviceCodeUnclaimed error = errors.New("the user has not yet claimed the device code")
-var ErrInvalidDeviceCode error = errors.New("invalid device code")
-var ErrForbidden error = errors.New("invalid API key or unapproved application")
-var ErrDeviceCodeAlreadyApproved error = errors.New("device code has already been approved")
-var ErrDeviceCodeExpired error = errors.New("the device code has expired, please regenerate a new one")
-var ErrDeviceCodeDenied error = errors.New("the device code was denied by the user")
-var ErrPollRateTooFast error = errors.New("the API is being polled too quickly")
-var ErrServerError error = errors.New("the Trakt API is reporting an internal problem, please check back later")
-var ErrServiceOverloaded error = errors.New("the servers are overloaded, please try again in 30 seconds")
-var ErrCloudflareError error = errors.New("there is an issue with Cloudflare")
+var (
+	ErrDeviceCodeUnclaimed       error = errors.New("the user has not yet claimed the device code")
+	ErrInvalidDeviceCode         error = errors.New("invalid device code")
+	ErrForbidden                 error = errors.New("invalid API key or unapproved application")
+	ErrDeviceCodeAlreadyApproved error = errors.New("device code has already been approved")
+	ErrDeviceCodeExpired         error = errors.New("the device code has expired, please regenerate a new one")
+	ErrDeviceCodeDenied          error = errors.New("the device code was denied by the user")
+	ErrPollRateTooFast           error = errors.New("the API is being polled too quickly")
+	ErrServerError               error = errors.New("the Trakt API is reporting an internal problem, please check back later")
+	ErrServiceOverloaded         error = errors.New("the servers are overloaded, please try again in 30 seconds")
+	ErrCloudflareError           error = errors.New("there is an issue with Cloudflare")
+)
 
 // GenerateNewCode wraps GenerateNewCodeContext using context.Background().
 func GenerateNewCode(clientID string) (CodeResponse, error) {

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -70,7 +70,7 @@ func GenerateNewCodeContext(ctx context.Context, clientID string) (CodeResponse,
 		return CodeResponse{}, fmt.Errorf("RequestToken: unexpected status code '%v'", resp.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return CodeResponse{}, fmt.Errorf("GenerateNewCode: %w", err)
 	}
@@ -165,7 +165,7 @@ func RequestTokenContext(ctx context.Context, codeResp CodeResponse, clientID, c
 		return TokenResponse{}, fmt.Errorf("RequestToken: unexpected status code '%v'", resp.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("RequestToken: %w", err)
 	}
@@ -220,7 +220,7 @@ func RefreshAccessTokenContext(ctx context.Context, refreshToken, clientID, clie
 		return TokenResponse{}, fmt.Errorf("RefreshToken: unexpected status code '%v'", resp.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("RefreshToken: %w", err)
 	}

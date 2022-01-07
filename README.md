@@ -1,5 +1,10 @@
 # Go Trakt Device Auth Library
 
+[![GoDoc](https://pkg.go.dev/badge/github.com/BrenekH/go-traktdeviceauth)](https://pkg.go.dev/github.com/BrenekH/go-traktdeviceauth)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/BrenekH/go-traktdeviceauth?label=version)
+[![License](https://img.shields.io/github/license/BrenekH/go-traktdeviceauth)](https://github.com/BrenekH/go-traktdeviceauth/tree/master/LICENSE)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/BrenekH/go-traktdeviceauth)
+
 A Go library to allow an end user to authorize a third-party Trakt application access to their account using the [device method](https://trakt.docs.apiary.io/#reference/authentication-devices/generate-new-device-codes).
 
 ## Conventions

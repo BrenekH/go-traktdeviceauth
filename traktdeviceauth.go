@@ -98,7 +98,7 @@ func PollForAuthTokenContext(ctx context.Context, codeResp CodeResponse, clientI
 		select {
 		case <-time.After(time.Second * time.Duration(codeResp.Interval)):
 			resp, err := RequestTokenContext(ctx, codeResp, clientID, clientSecret)
-			if err != nil {
+			if err == nil {
 				return resp, nil
 			}
 

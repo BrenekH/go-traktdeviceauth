@@ -21,11 +21,20 @@ These values are found in the [dashboard for the app on Trakt's website](https:/
 Many functions in this library have context counterparts which allow a custom [context.Context](https://pkg.go.dev/context#Context) to be used.
 If you don't know what all this means, you'll probably be fine sticking with the non-context versions.
 
+## Installation
+
+As a Go library: `go get -u github.com/BrenekH/go-traktdeviceauth`
+
+As an executable: `go install github.com/BrenekH/go-traktdeviceauth/cmd@latest`
+or download from the [latest release](https://github.com/BrenekH/go-traktdeviceauth/releases/latest).
+
 ## Usage
 
 As suggested by the [official API docs](https://trakt.docs.apiary.io/#reference/authentication-devices/generate-new-device-codes), a device and user code pair must be generated as the first step using [GenerateNewCode](https://pkg.go.dev/github.com/BrenekH/go-traktdeviceauth#GenerateNewCode).
 Next, the user needs to directed to the returned verification url and instructed to enter the user code into the website.
 Finally, [PollForAuthToken](https://pkg.go.dev/github.com/BrenekH/go-traktdeviceauth#GenerateNewCode) is used to wait for the user to complete authentication or the code to expire.
+
+If the returned access token expires, a new one can be generated with asking the user to re-authenticate by using [RefreshAccessToken](https://pkg.go.dev/github.com/BrenekH/go-traktdeviceauth#RefreshAccessToken)
 
 Trakt recommends that the `AccessToken` and `RefreshToken` be saved in permanent storage so that the user doesn't need to log in every time your program starts.
 

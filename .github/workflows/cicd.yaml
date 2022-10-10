@@ -109,4 +109,4 @@ jobs:
           name: Release ${{ github.ref }}
           prerelease: ${{ env.PREREL }}
           generate_release_notes: true
-          draft: true
+          draft: false

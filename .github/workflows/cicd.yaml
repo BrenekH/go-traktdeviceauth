@@ -55,6 +55,7 @@ jobs:
         run: |
           echo "COMP_GOOS=$(echo ${{ matrix.go-os-arch }} | cut -d/ -f1 -)" >> $GITHUB_ENV
           echo "COMP_GOARCH=$(echo ${{ matrix.go-os-arch }} | cut -d/ -f2 -)" >> $GITHUB_ENV
+
       - name: Set suffix (windows)
         if: contains(matrix.go-os-arch, 'windows')
         run: echo "EXEC_SUFFIX=.exe" >> $GITHUB_ENV
@@ -97,6 +98,9 @@ jobs:
         with:
           path: ${{ github.workspace }}/build-artifacts
 
+      - name: Massage github.ref
+        run: echo "PRUNED_VERSION=$(echo ${GITHUB_REF:10})" >> $GITHUB_ENV
+
       - name: Set PREREL environment variable
         env:
           TAG: ${{ github.ref }}
@@ -106,7 +110,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ github.workspace }}/build-artifacts/*/*
-          name: Release ${{ github.ref }}
+          name: Release ${{ env.PRUNED_VERSION }}
           prerelease: ${{ env.PREREL }}
           generate_release_notes: true
           draft: false
